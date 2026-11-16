@@ -1,0 +1,53 @@
+esphome:
+  name: poe-test-2
+  friendly_name: POE-test-2
+
+esp32:
+  board: esp32-p4-evboard
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+logger:
+  hardware_uart: UART0
+
+api:
+  encryption:
+    key: "62lHQ84xhAUoj5TTpmVrN2xUuC6VT8U9J22JHSOTTJg="
+
+ota:
+  - platform: esphome
+    password: "0b9402aad4ebfbbf39abe0d7f264878c"
+
+ethernet:
+  type: IP101
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  clk:
+    mode: CLK_EXT_IN
+    pin: GPIO50
+  phy_addr: 1
+  power_pin: GPIO51
+
+#
+#  # Optional but useful
+##  manual_ip:
+##    static_ip: 192.168.2.40
+##    gateway: 192.168.2.1
+##    subnet: 255.255.255.0
+#
+#  # Fallback if Ethernet fails
+#  domain: .local
+
+one_wire:
+  - platform: gpio
+    pin: GPIO20
+
+sensor:
+  - platform: dallas_temp
+    name: temperature_meterkast
+    unit_of_measurement: "°C"
+    device_class: "temperature"
+    state_class: "measurement"
+    accuracy_decimals: 1
+

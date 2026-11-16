@@ -1,0 +1,73 @@
+esphome:
+  name: test3
+
+esp32:
+  board: esp32-p4-evboard
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+  hardware_uart: UART0
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "5Qd1ZvQzSCHl74r4AFitT6ZSVFVjaGEuAJvZYHakxPs="
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+ethernet:
+  type: IP101
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  clk:
+    mode: CLK_EXT_IN
+    pin: GPIO50
+  phy_addr: 1
+  power_pin: GPIO51
+
+display:
+  - platform: lcd_gpio
+    dimensions: 16x4
+    data_pins:
+      - GPIO32
+      - GPIO27
+      - GPIO33
+      - GPIO26
+      - GPIO46
+      - GPIO23
+      - GPIO22
+      - GPIO21
+    enable_pin: GPIO47
+    rs_pin: GPIO48
+    lambda: |-
+      it.printf("Server: %3.0f", id(shelly_plug_server_power).state);
+      it.printf(0,1,"Power: %4.0f", id(power_formatted).state);
+
+sensor:
+  - platform: homeassistant
+    id: shelly_plug_server_power
+    entity_id: sensor.shellyplug1_switch_0_power
+    internal: false
+  - platform: homeassistant
+    id: electricity_meter_power_production
+    entity_id: sensor.electricity_meter_power_production
+    internal: false
+  - platform: template
+    id: power_formatted
+    # Change "sensor.energy_kwh_total" to the name of your total energy sensor
+    # which should have a unit of kWh or Wh.
+    # You may need to adjust the "filters" and the "value_template" based on your
+    # specific energy sensor's units and how it was created.
+    # Example assumes your energy sensor provides readings in kWh.
+    lambda: |-
+      if (id(electricity_meter_power_production).state) {
+        return id(electricity_meter_power_production).state * 1000;
+      } else {
+        return 0;
+      }
+    unit_of_measurement: "W"

@@ -14,7 +14,7 @@ logger:
 
 api:
   encryption:
-    key: "5Qd1ZvQzSCHl74r4AFitT6ZSVFVjaGEuAJvZYHakxPs="
+    key: !secret esp_p4_martin_pc
 
 ota:
   - platform: esphome

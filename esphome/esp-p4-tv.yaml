@@ -1,0 +1,148 @@
+# esp-p4-tv
+# Replaces the Raspberry Pi behind the TV:
+#   - Sendspin media player (Music Assistant) -> external I2S DAC -> AV receiver (analog stereo)
+#   - 2x WS2812 (ws281x) strips of 106 LEDs, ported from tv-lights-python/led_controller_v2.py
+#
+# Board: Waveshare ESP32-P4-ETH (+ optional PoE module)
+#
+# Wiring (all header GPIOs, 3.3 V logic):
+#   GPIO20 -> LED strip 1 DIN   (via 74AHCT125 / level shifter recommended)
+#   GPIO21 -> LED strip 2 DIN   (via 74AHCT125 / level shifter recommended)
+#   GPIO4  -> DAC BCK  (bit clock)
+#   GPIO5  -> DAC LCK  (LRCLK / word select)
+#   GPIO6  -> DAC DIN  (data)
+#   GND    -> DAC GND, LED PSU GND (common ground!)
+#   PCM5102A board: SCK tied to GND (no MCLK), XSMT high (unmuted), FMT low (I2S)
+#
+# Avoided pins: GPIO7-13 + GPIO53 (onboard ES8311 codec / amp), GPIO24-27 (USB PHYs),
+# GPIO31/49-52 (Ethernet), GPIO34-38 (strapping / UART0).
+
+substitutions:
+  led_count: "106"
+
+esphome:
+  name: esp-p4-tv
+  friendly_name: ESP-P4 TV
+
+esp32:
+  board: esp32-p4-evboard
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  speed: 200MHz
+
+logger:
+  hardware_uart: UART0
+  level: INFO
+
+api:
+  encryption:
+    key: !secret esp_p4_tv_api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+ethernet:
+  type: IP101
+  mdc_pin: GPIO31
+  mdio_pin: GPIO52
+  clk:
+    mode: CLK_EXT_IN
+    pin: GPIO50
+  phy_addr: 1
+  power_pin: GPIO51
+
+# ---------------------------------------------------------------------------
+# Audio: Sendspin (Music Assistant) -> I2S DAC
+# ---------------------------------------------------------------------------
+i2s_audio:
+  - id: i2s_out
+    i2s_lrclk_pin: GPIO5
+    i2s_bclk_pin: GPIO4
+
+speaker:
+  - platform: i2s_audio
+    id: dac_speaker
+    i2s_audio_id: i2s_out
+    i2s_dout_pin: GPIO6
+    dac_type: external
+    channel: stereo
+    sample_rate: 48000
+    bits_per_sample: 32bit   # PCM5102A accepts 16/24/32; 32 keeps 24-bit sources lossless
+    buffer_duration: 100ms
+
+  # Converts whatever the source delivers (sample rate / bit depth) to what the DAC speaker expects
+  - platform: resampler
+    id: media_resampler
+    output_speaker: dac_speaker
+
+sendspin:
+  task_stack_in_psram: true
+
+media_source:
+  - platform: sendspin
+    id: sendspin_source
+    sample_rate: 48000
+    codecs: [flac, pcm]
+    task_stack_in_psram: true
+    # Receiver/DSP latency compensation, adjustable from Music Assistant at runtime
+    static_delay_adjustable: true
+
+media_player:
+  - platform: speaker_source
+    id: tv_media_player
+    name: "Media Player"
+    volume_initial: 50%
+    media_pipeline:
+      speaker: media_resampler
+      num_channels: 2
+      sources:
+        - sendspin_source
+
+# ---------------------------------------------------------------------------
+# LED strips (ws281x, GRB, 106 LEDs each) - same features as the Python script:
+# on/off, RGB colour, brightness, "rainbow" effect. "static" = no effect, "off" = turn off.
+# ---------------------------------------------------------------------------
+light:
+  - platform: esp32_rmt_led_strip
+    id: strip1
+    name: "LED Strip 1"
+    pin: GPIO20
+    num_leds: ${led_count}
+    chipset: WS2812
+    channel_colors: GRB
+    restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 300ms
+    effects: &led_effects
+      - addressable_rainbow:
+          name: Rainbow
+          # Python: 256 hue steps every 20 ms (~5 s per cycle), hue spread over 256 LEDs
+          speed: 13
+          width: 256
+      - addressable_color_wipe:
+          name: Color Wipe
+      - addressable_twinkle:
+          name: Twinkle
+
+  - platform: esp32_rmt_led_strip
+    id: strip2
+    name: "LED Strip 2"
+    pin: GPIO21
+    num_leds: ${led_count}
+    chipset: WS2812
+    channel_colors: GRB
+    restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 300ms
+    effects: *led_effects
+
+# Optional: cut power to the LED supply when both strips are off.
+# 212 idle WS2812s still draw ~1 W even when black. Needs a relay or MOSFET on the PSU's 5 V line.
+# Uncomment and add `power_supply: led_psu` to both lights above.
+# power_supply:
+#   - id: led_psu
+#     pin: GPIO22
+#     enable_time: 20ms
+#     keep_on_time: 10s

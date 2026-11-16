@@ -13,11 +13,11 @@ logger:
 
 api:
   encryption:
-    key: "62lHQ84xhAUoj5TTpmVrN2xUuC6VT8U9J22JHSOTTJg="
+    key: !secret esp_p4_test2_api_key
 
 ota:
   - platform: esphome
-    password: "0b9402aad4ebfbbf39abe0d7f264878c"
+    password: !secret ota_password
 
 ethernet:
   type: IP101

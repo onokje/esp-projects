@@ -41,121 +41,45 @@ ethernet:
 #  domain: .local
 
 
-display:
-  - platform: lcd_gpio
-    dimensions: 16x4
-    data_pins:
-      - GPIO14
-      - GPIO06
-      - GPIO05
-      - GPIO04
-      - GPIO16
-      - GPIO15
-      - GPIO18
-      - GPIO17
-    enable_pin: GPIO21
-    rs_pin: GPIO20
-    lambda: |-
-      switch (id(page)){
-        case 1:
-          it.printf("Power cons: %4.0f", id(power_consumption_formatted).state);
-          it.printf(0,1,"Power prod: %4.0f", id(power_production_formatted).state);
-          break;
-        case 2:
-          it.printf("Server: %3.0f", id(shelly_plug_server_power).state);
-          it.printf(0,1,"Martin: %3.0f", id(shelly_plug_martin_pc_power).state);
-          break;
-        case 3:
-          it.printf("Temp: %2.1f", id(hdc1080_temperature).state);
-          it.printf(0,1,"Co2: %4.0f", id(ccs811_eco2).state);
-          break;
-      }
-
-globals:
-  - id: page
-    type: int
-    initial_value: "1"
-
-interval:
-  - interval: 5s
-    then:
-      - lambda: |-
-          id(page) = (id(page) + 1);
-          if (id(page) > 3) {
-            id(page) = 1;
-          }
-
-i2c:
-  sda: GPIO07
-  scl: GPIO08
+#i2c:
+#  sda: GPIO07
+#  scl: GPIO08
 
 sensor:
-  - platform: homeassistant
-    id: shelly_plug_server_power
-    entity_id: sensor.shellyplug1_switch_0_power
-    internal: false
-  - platform: homeassistant
-    id: shelly_plug_martin_pc_power
-    entity_id: sensor.shellyplusplugs_e465b8b1eb94_kantoor1_plug_kantoor1_power
-    internal: false
-  - platform: homeassistant
-    id: electricity_meter_power_consumption
-    entity_id: sensor.electricity_meter_power_consumption
-    internal: false
-  - platform: homeassistant
-    id: electricity_meter_power_production
-    entity_id: sensor.electricity_meter_power_production
-    internal: false
-  - platform: template
-    id: power_consumption_formatted
-    # Change "sensor.energy_kwh_total" to the name of your total energy sensor
-    # which should have a unit of kWh or Wh.
-    # You may need to adjust the "filters" and the "value_template" based on your
-    # specific energy sensor's units and how it was created.
-    # Example assumes your energy sensor provides readings in kWh.
-    lambda: |-
-      if (id(electricity_meter_power_consumption).state) {
-        return id(electricity_meter_power_consumption).state * 1000;
-      } else {
-        return 0;
-      }
-    unit_of_measurement: "W"
-  - platform: template
-    id: power_production_formatted
-    lambda: |-
-      if (id(electricity_meter_power_production).state) {
-        return id(electricity_meter_power_production).state * 1000;
-      } else {
-        return 0;
-      }
-    unit_of_measurement: "W"
-
-  - platform: hdc1080
-    temperature:
-      name: "Temperature (HDC1080)"
-      id: hdc1080_temperature
-    humidity:
-      name: "Humidity (HDC1080)"
-      id: hdc1080_humidity
-    address: 0x40
-    update_interval: 60s
-  - platform: ccs811
-    eco2:
-      name: "eCO2 (CCS811)"
-      id: ccs811_eco2
-    tvoc:
-      name: "Total Volatile Organic Compound (CCS811)"
-      id: ccs811_tvoc
-    temperature: hdc1080_temperature
-    humidity: hdc1080_humidity
-    address: 0x5A
-    baseline: 0x947C
-    update_interval: 60s
+#
+#
+#  - platform: hdc1080
+#    temperature:
+#      name: "Temperature (HDC1080)"
+#      id: hdc1080_temperature
+#    humidity:
+#      name: "Humidity (HDC1080)"
+#      id: hdc1080_humidity
+#    address: 0x40
+#    update_interval: 60s
+#  - platform: ccs811
+#    eco2:
+#      name: "eCO2 (CCS811)"
+#      id: ccs811_eco2
+#    tvoc:
+#      name: "Total Volatile Organic Compound (CCS811)"
+#      id: ccs811_tvoc
+#    temperature: hdc1080_temperature
+#    humidity: hdc1080_humidity
+#    address: 0x5A
+#    baseline: 0x947C
+#    update_interval: 60s
 
   - platform: rotary_encoder
+    filters:
+      - debounce: 10ms
     id: light_encoder_1
-    pin_a: GPIO03
-    pin_b: GPIO02
+    pin_a:
+      number: GPIO16
+      mode: INPUT_PULLUP
+    pin_b:
+      number: GPIO17
+      mode: INPUT_PULLUP
     resolution: 1
     on_clockwise:
       - light.dim_relative:
@@ -171,10 +95,10 @@ sensor:
       - debounce: 10ms
     id: light_encoder_2
     pin_a:
-      number: GPIO32
+      number: GPIO06
       mode: INPUT_PULLUP
     pin_b:
-      number: GPIO33
+      number: GPIO14
       mode: INPUT_PULLUP
     resolution: 1
     on_clockwise:
@@ -187,9 +111,15 @@ sensor:
           relative_brightness: -10%
 
   - platform: rotary_encoder
+    filters:
+      - debounce: 10ms
     id: light_encoder_3
-    pin_a: GPIO47
-    pin_b: GPIO48
+    pin_a:
+      number: GPIO03
+      mode: INPUT_PULLUP
+    pin_b:
+      number: GPIO04
+      mode: INPUT_PULLUP
     resolution: 1
     on_clockwise:
       - light.dim_relative:
@@ -216,11 +146,11 @@ light:
 
 output:
   - platform: ledc
-    pin: GPIO22
+    pin: GPIO23
     id: pwm1
     channel: 0
   - platform: ledc
-    pin: GPIO23
+    pin: GPIO22
     id: pwm2
     channel: 2
   - platform: ledc
@@ -231,7 +161,7 @@ output:
 binary_sensor:
   - platform: gpio
     pin:
-      number: GPIO24
+      number: GPIO18
       inverted: true
       mode:
         input: true
@@ -245,7 +175,7 @@ binary_sensor:
 #
   - platform: gpio
     pin:
-      number: GPIO27
+      number: GPIO15
       inverted: true
       mode:
         input: true
@@ -259,7 +189,7 @@ binary_sensor:
 
   - platform: gpio
     pin:
-      number: GPIO46
+      number: GPIO05
       inverted: true
       mode:
         input: true
